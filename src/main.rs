@@ -1,3 +1,4 @@
+#![feature(total_cmp)]
 extern crate image;
 
 mod ray;
@@ -9,33 +10,24 @@ use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use nalgebra::{Point3, Vector3};
 use rayon::prelude::*;
 
-use crate::ray::{Ray, RT};
+use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
+use std::sync::Arc;
 
-fn ray_color(ray: &Ray<RT>) -> image::Rgb<CT> {
-    let sphere_center = Point3::new(0., 0., -1.);
-    if let Some(intersection_t) = hit_sphere(&sphere_center, 0.5, ray) {
-        let unormal = (ray.at(intersection_t) - sphere_center).normalize();
-        let r = 0.5 * (255. * (unormal.x + 1.0));
-        let g = 0.5 * (255. * (unormal.y + 1.0));
-        let b = 0.5 * (255. * (unormal.z + 1.0));
-        image::Rgb([r as u8, g as u8, b as u8])
-    } else {
-        let t = 0.5 * (ray.direction().normalize().y + 1.0);
-        let s = (u8::max_value() as RT * t) as u8;
-        image::Rgb([s, s, s])
-    }
-}
-
-fn hit_sphere(center: &Point3<RT>, radius: RT, ray: &Ray<RT>) -> Option<RT> {
-    let oc: Vector3<RT> = ray.origin() - center;
-    let a = ray.direction().norm_squared();
-    let half_b = oc.dot(&ray.direction());
-    let c = oc.norm_squared() - radius * radius;
-    let discriminant = half_b * half_b - a * c;
-    if discriminant < 0.0 {
-        None // no intersection
-    } else {
-        Some((-half_b - discriminant.sqrt()) / a)
+fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>]) -> image::Rgb<CT> {
+    let hit = shoot_ray(hittables, ray, 0., RT::INFINITY);
+    match hit {
+        Some(ray_hit) => {
+            let unormal = ray_hit.normal;
+            let r = 0.5 * (255. * (unormal.x + 1.0));
+            let g = 0.5 * (255. * (unormal.y + 1.0));
+            let b = 0.5 * (255. * (unormal.z + 1.0));
+            image::Rgb([r as u8, g as u8, b as u8])
+        }
+        None => {
+            let t = 0.5 * (ray.direction().normalize().y + 1.0);
+            let s = (u8::max_value() as RT * t) as u8;
+            image::Rgb([s, s, s])
+        }
     }
 }
 
@@ -57,6 +49,11 @@ fn main() -> anyhow::Result<()> {
     let lower_left_corner =
         origin - horizontal.scale(0.5) - vertical.scale(0.5) - Vector3::new(0., 0., focal_length);
 
+    let world: Vec<Arc<dyn Hittable + Send + Sync>> = vec![
+        Arc::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5)),
+        Arc::new(Sphere::new(Point3::new(0.5, 0.0, -1.0), 0.5)),
+    ];
+
     let progress_bar = ProgressBar::new((image_width * image_height) as u64)
         .with_style(ProgressStyle::default_bar().template("{bar} [{elapsed}] ETA {eta}"));
     let pixels: Vec<(u32, u32, Rgb<u8>)> = (0..(image_width * image_height))
@@ -70,7 +67,7 @@ fn main() -> anyhow::Result<()> {
                 origin,
                 lower_left_corner + horizontal.scale(u) + vertical.scale(v) - origin,
             );
-            let color = ray_color(&ray);
+            let color = ray_color(&ray, &world);
             (x, y, color)
         })
         .collect();
