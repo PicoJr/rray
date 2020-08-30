@@ -12,9 +12,22 @@ use rayon::prelude::*;
 use crate::ray::{Ray, RT};
 
 fn ray_color(ray: &Ray<RT>) -> image::Rgb<CT> {
-    let t = 0.5 * (ray.direction().normalize().y + 1.0);
-    let s = (u8::max_value() as RT * t) as u8;
-    image::Rgb([s, s, s])
+    if hit_sphere(&Point3::new(0., 0., -1.), 0.5, ray) {
+        image::Rgb([255, 0, 0])
+    } else {
+        let t = 0.5 * (ray.direction().normalize().y + 1.0);
+        let s = (u8::max_value() as RT * t) as u8;
+        image::Rgb([s, s, s])
+    }
+}
+
+fn hit_sphere(center: &Point3<RT>, radius: RT, ray: &Ray<RT>) -> bool {
+    let oc: Vector3<RT> = ray.origin() - center;
+    let a = ray.direction().norm_squared();
+    let b = 2.0 * oc.dot(&ray.direction());
+    let c = oc.norm_squared() - radius * radius;
+    let discriminant = b * b - 4.0 * a * c;
+    discriminant > 0.0
 }
 
 fn main() -> anyhow::Result<()> {
