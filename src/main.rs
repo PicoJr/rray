@@ -12,8 +12,13 @@ use rayon::prelude::*;
 use crate::ray::{Ray, RT};
 
 fn ray_color(ray: &Ray<RT>) -> image::Rgb<CT> {
-    if hit_sphere(&Point3::new(0., 0., -1.), 0.5, ray) {
-        image::Rgb([255, 0, 0])
+    let sphere_center = Point3::new(0., 0., -1.);
+    if let Some(intersection_t) = hit_sphere(&sphere_center, 0.5, ray) {
+        let unormal = (ray.at(intersection_t) - sphere_center).normalize();
+        let r = 0.5 * (255. * (unormal.x + 1.0));
+        let g = 0.5 * (255. * (unormal.y + 1.0));
+        let b = 0.5 * (255. * (unormal.z + 1.0));
+        image::Rgb([r as u8, g as u8, b as u8])
     } else {
         let t = 0.5 * (ray.direction().normalize().y + 1.0);
         let s = (u8::max_value() as RT * t) as u8;
@@ -21,13 +26,17 @@ fn ray_color(ray: &Ray<RT>) -> image::Rgb<CT> {
     }
 }
 
-fn hit_sphere(center: &Point3<RT>, radius: RT, ray: &Ray<RT>) -> bool {
+fn hit_sphere(center: &Point3<RT>, radius: RT, ray: &Ray<RT>) -> Option<RT> {
     let oc: Vector3<RT> = ray.origin() - center;
     let a = ray.direction().norm_squared();
     let b = 2.0 * oc.dot(&ray.direction());
     let c = oc.norm_squared() - radius * radius;
     let discriminant = b * b - 4.0 * a * c;
-    discriminant > 0.0
+    if discriminant < 0.0 {
+        None // no intersection
+    } else {
+        Some((-b - discriminant.sqrt()) / (2.0 * a))
+    }
 }
 
 fn main() -> anyhow::Result<()> {

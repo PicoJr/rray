@@ -14,6 +14,10 @@ impl Ray<RT> {
         Ray { origin, direction }
     }
 
+    pub(crate) fn at(&self, t: RT) -> Point3<RT> {
+        self.origin + self.direction.scale(t)
+    }
+
     pub(crate) fn origin(&self) -> Point3<RT> {
         self.origin
     }
