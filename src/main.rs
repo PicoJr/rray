@@ -29,13 +29,13 @@ fn ray_color(ray: &Ray<RT>) -> image::Rgb<CT> {
 fn hit_sphere(center: &Point3<RT>, radius: RT, ray: &Ray<RT>) -> Option<RT> {
     let oc: Vector3<RT> = ray.origin() - center;
     let a = ray.direction().norm_squared();
-    let b = 2.0 * oc.dot(&ray.direction());
+    let half_b = oc.dot(&ray.direction());
     let c = oc.norm_squared() - radius * radius;
-    let discriminant = b * b - 4.0 * a * c;
+    let discriminant = half_b * half_b - a * c;
     if discriminant < 0.0 {
         None // no intersection
     } else {
-        Some((-b - discriminant.sqrt()) / (2.0 * a))
+        Some((-half_b - discriminant.sqrt()) / a)
     }
 }
 
