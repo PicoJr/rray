@@ -74,11 +74,7 @@ impl Hittable for Sphere {
                 Some(t) => {
                     let point = ray.at(t);
                     let normal = (point - self.center).scale(1. / self.radius);
-                    Some(RayHit {
-                        point,
-                        normal,
-                        t: t1,
-                    })
+                    Some(RayHit { point, normal, t })
                 }
                 None => None,
             }
