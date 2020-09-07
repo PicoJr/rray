@@ -12,25 +12,27 @@ use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::color::{RRgb, CT};
-use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
+use crate::ray::{random_in_unit_sphere, shoot_ray, Hittable, Ray, Sphere, RT};
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
 use std::sync::Arc;
 
-fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>]) -> image::Rgb<CT> {
+fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>], depth: usize) -> RRgb {
+    if depth == 0 {
+        return RRgb::new(0., 0., 0.);
+    }
     let hit = shoot_ray(hittables, ray, 0., RT::INFINITY);
     match hit {
         Some(ray_hit) => {
-            let unormal = ray_hit.normal;
-            let r = 0.5 * (255. * (unormal.x + 1.0));
-            let g = 0.5 * (255. * (unormal.y + 1.0));
-            let b = 0.5 * (255. * (unormal.z + 1.0));
-            image::Rgb([r as u8, g as u8, b as u8])
+            let target =
+                ray_hit.point + ray_hit.normal + random_in_unit_sphere(&mut rand::thread_rng());
+            let bounce_ray = Ray::new(ray_hit.point, target - ray_hit.point);
+            ray_color(&bounce_ray, hittables, depth - 1) * 0.5
         }
         None => {
-            let t = 0.5 * (ray.direction().normalize().y + 1.0);
-            let s = (u8::max_value() as RT * t) as u8;
-            image::Rgb([s, s, s])
+            let t = 0.5 * (ray.direction().normalize().y + 1.0); // t in [0;1[
+            let s = (u8::max_value() as f64 * t as f64);
+            RRgb::new(s, s, s)
         }
     }
 }
@@ -42,6 +44,7 @@ fn main() -> anyhow::Result<()> {
     let image_height = (image_width as RT / aspect_ratio) as u32;
     assert!(image_width > 0 && image_height > 0);
     let sample_per_pixel = 10;
+    let max_depth = 10;
 
     // camera
     let origin = Point3::new(0., 0., 0.);
@@ -73,8 +76,8 @@ fn main() -> anyhow::Result<()> {
                     let u = (x as RT + du as RT) / image_width as RT;
                     let v = (y as RT + dv as RT) / image_height as RT;
                     let ray = camera.get_ray(u, v);
-                    let color = ray_color(&ray, &world);
-                    RRgb::from_color(color)
+                    let color = ray_color(&ray, &world, max_depth);
+                    color
                 })
                 .sum();
             let average_color = sum_color * (1. / (sample_per_pixel as RT));

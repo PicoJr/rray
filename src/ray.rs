@@ -1,5 +1,7 @@
 use nalgebra::base::Scalar;
 use nalgebra::{Point3, Vector3};
+use rand::prelude::ThreadRng;
+use rand_distr::{Distribution, UnitBall};
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -106,4 +108,9 @@ pub(crate) fn shoot_ray(
         Some(maybe_hit) => maybe_hit,
         _ => None,
     }
+}
+
+pub(crate) fn random_in_unit_sphere(thread_rng: &mut ThreadRng) -> Vector3<RT> {
+    let v: [RT; 3] = UnitBall.sample(thread_rng);
+    Vector3::new(v[0], v[1], v[2])
 }
