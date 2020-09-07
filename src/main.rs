@@ -11,7 +11,7 @@ use nalgebra::Point3;
 use rayon::prelude::*;
 
 use crate::camera::Camera;
-use crate::color::{RRgb, CT};
+use crate::color::RRgb;
 use crate::ray::{random_in_unit_sphere, shoot_ray, Hittable, Ray, Sphere, RT};
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
@@ -21,7 +21,7 @@ fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>], depth
     if depth == 0 {
         return RRgb::new(0., 0., 0.);
     }
-    let hit = shoot_ray(hittables, ray, 0., RT::INFINITY);
+    let hit = shoot_ray(hittables, ray, 0.01, RT::INFINITY);
     match hit {
         Some(ray_hit) => {
             let target =
@@ -31,7 +31,7 @@ fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>], depth
         }
         None => {
             let t = 0.5 * (ray.direction().normalize().y + 1.0); // t in [0;1[
-            let s = (u8::max_value() as f64 * t as f64);
+            let s = u8::max_value() as f64 * t as f64;
             RRgb::new(s, s, s)
         }
     }
@@ -76,8 +76,7 @@ fn main() -> anyhow::Result<()> {
                     let u = (x as RT + du as RT) / image_width as RT;
                     let v = (y as RT + dv as RT) / image_height as RT;
                     let ray = camera.get_ray(u, v);
-                    let color = ray_color(&ray, &world, max_depth);
-                    color
+                    ray_color(&ray, &world, max_depth)
                 })
                 .sum();
             let average_color = sum_color * (1. / (sample_per_pixel as RT));
