@@ -13,3 +13,6 @@ indicatif = {version="0.15.0", features=["rayon"]}
 rayon ="1.4.0"
 nalgebra = "0.22.0"
 rand = "0.7.3"
+
+[profile.release]
+debug = true

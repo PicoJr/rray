@@ -38,10 +38,10 @@ fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>]) -> im
 fn main() -> anyhow::Result<()> {
     // image
     let aspect_ratio: RT = 2.0 / 1.0;
-    let image_width: u32 = 512;
+    let image_width: u32 = 256;
     let image_height = (image_width as RT / aspect_ratio) as u32;
     assert!(image_width > 0 && image_height > 0);
-    let sample_per_pixel = 100;
+    let sample_per_pixel = 10;
 
     // camera
     let origin = Point3::new(0., 0., 0.);
@@ -54,9 +54,12 @@ fn main() -> anyhow::Result<()> {
         Arc::new(Sphere::new(Point3::new(0.5, 0.0, -1.0), 0.5)),
     ];
 
-    let progress_bar = ProgressBar::new((image_width * image_height) as u64)
+    let primary_rays = image_width * image_height; // 1 ray / pixel
+
+    let progress_bar = ProgressBar::new(primary_rays as u64)
         .with_style(ProgressStyle::default_bar().template("{bar} [{elapsed}] ETA {eta}"));
-    let pixels: Vec<(u32, u32, Rgb<u8>)> = (0..(image_width * image_height))
+    progress_bar.set_draw_delta((primary_rays / 1000) as u64); // limit progress_bar redraw
+    let pixels: Vec<(u32, u32, Rgb<u8>)> = (0..primary_rays)
         .into_par_iter()
         .progress_with(progress_bar)
         .map(|p| (p as u32 % image_width, p as u32 / image_width))
@@ -65,8 +68,8 @@ fn main() -> anyhow::Result<()> {
             let side = Uniform::new(0., 1.);
             let sum_color: RRgb = (0..sample_per_pixel)
                 .map(|_| {
-                    let du = rng.sample(side); // todo
-                    let dv = rng.sample(side); // todo
+                    let du = rng.sample(side);
+                    let dv = rng.sample(side);
                     let u = (x as RT + du as RT) / image_width as RT;
                     let v = (y as RT + dv as RT) / image_height as RT;
                     let ray = camera.get_ray(u, v);
