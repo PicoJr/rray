@@ -47,11 +47,11 @@ fn main() -> anyhow::Result<()> {
 
     // image
     let aspect_ratio: RT = 2.0 / 1.0;
-    let image_width: u32 = 256;
+    let image_width: u32 = config.image_width as u32;
     let image_height = (image_width as RT / aspect_ratio) as u32;
     assert!(image_width > 0 && image_height > 0);
     let sample_per_pixel = config.sample_per_pixel;
-    let max_depth = 10;
+    let max_depth = config.max_depth;
 
     // camera
     let origin = Point3::new(0., 0., 0.);
