@@ -1,7 +1,10 @@
 #![feature(total_cmp)]
 extern crate image;
+#[macro_use]
+extern crate clap;
 
 mod camera;
+mod cli;
 mod color;
 mod ray;
 
@@ -38,12 +41,16 @@ fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>], depth
 }
 
 fn main() -> anyhow::Result<()> {
+    let app = cli::get_app();
+    let matches = app.get_matches();
+    let config = cli::RConfig::from_matches(matches)?;
+
     // image
     let aspect_ratio: RT = 2.0 / 1.0;
     let image_width: u32 = 256;
     let image_height = (image_width as RT / aspect_ratio) as u32;
     assert!(image_width > 0 && image_height > 0);
-    let sample_per_pixel = 10;
+    let sample_per_pixel = config.sample_per_pixel;
     let max_depth = 10;
 
     // camera
