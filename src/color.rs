@@ -4,6 +4,7 @@ use std::ops;
 
 pub(crate) type CT = u8;
 
+#[derive(Clone)]
 pub(crate) struct RRgb {
     r: f64,
     g: f64,
@@ -30,6 +31,18 @@ impl ops::Mul<f32> for RRgb {
             r: (self.r as RT * rhs) as f64,
             g: (self.g as RT * rhs) as f64,
             b: (self.b as RT * rhs) as f64,
+        }
+    }
+}
+
+impl ops::Mul<RRgb> for RRgb {
+    type Output = RRgb;
+
+    fn mul(self, rhs: RRgb) -> Self::Output {
+        RRgb {
+            r: (self.r * rhs.r),
+            g: (self.g * rhs.g),
+            b: (self.b * rhs.b),
         }
     }
 }

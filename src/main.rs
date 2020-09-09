@@ -6,6 +6,7 @@ extern crate clap;
 mod camera;
 mod cli;
 mod color;
+mod material;
 mod ray;
 
 use image::{ImageBuffer, Rgb};
@@ -15,7 +16,8 @@ use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::color::RRgb;
-use crate::ray::{random_in_unit_sphere, shoot_ray, Hittable, Ray, Sphere, RT};
+use crate::material::Lambertian;
+use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
 use std::sync::Arc;
@@ -27,10 +29,11 @@ fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>], depth
     let hit = shoot_ray(hittables, ray, 0.01, RT::INFINITY);
     match hit {
         Some(ray_hit) => {
-            let target =
-                ray_hit.point + ray_hit.normal + random_in_unit_sphere(&mut rand::thread_rng());
-            let bounce_ray = Ray::new(ray_hit.point, target - ray_hit.point);
-            ray_color(&bounce_ray, hittables, depth - 1) * 0.5
+            if let Some((attenuation, scattered)) = ray_hit.material.scatter(ray, &ray_hit) {
+                attenuation * ray_color(&scattered, hittables, depth - 1)
+            } else {
+                RRgb::new(0., 0., 0.) // no ray scattered
+            }
         }
         None => {
             let t = 0.5 * (ray.direction().normalize().y + 1.0); // t in [0;1[
@@ -59,9 +62,28 @@ fn main() -> anyhow::Result<()> {
     let viewport_height = 2.0;
     let camera = Camera::new(origin, aspect_ratio, viewport_height, focal_length);
 
+    let material_ground = Arc::new(Lambertian {
+        albedo: RRgb::new(0.8, 0.8, 0.),
+    });
+    let material_left = Arc::new(Lambertian {
+        albedo: RRgb::new(0.8, 0.8, 0.8),
+    });
+    let material_right = Arc::new(Lambertian {
+        albedo: RRgb::new(0.8, 0.6, 0.2),
+    });
+
     let world: Vec<Arc<dyn Hittable + Send + Sync>> = vec![
-        Arc::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5)),
-        Arc::new(Sphere::new(Point3::new(0.5, 0.0, -1.0), 0.5)),
+        Arc::new(Sphere::new(
+            Point3::new(0.0, -100.5, -1.0),
+            100.0,
+            material_ground,
+        )),
+        Arc::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5, material_left)),
+        Arc::new(Sphere::new(
+            Point3::new(0.5, 0.0, -1.0),
+            0.5,
+            material_right,
+        )),
     ];
 
     let primary_rays = image_width * image_height; // 1 ray / pixel

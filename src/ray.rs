@@ -1,3 +1,4 @@
+use crate::material::Scatterer;
 use nalgebra::base::Scalar;
 use nalgebra::{Point3, Vector3};
 use rand::prelude::ThreadRng;
@@ -35,6 +36,7 @@ pub(crate) struct RayHit {
     pub point: Point3<RT>,
     /// normalized normal
     pub normal: Vector3<RT>,
+    pub material: Arc<dyn Scatterer + Send + Sync>,
     /// when the ray hit
     pub t: RT,
 }
@@ -46,11 +48,16 @@ pub(crate) trait Hittable {
 pub(crate) struct Sphere {
     center: Point3<RT>,
     radius: RT,
+    material: Arc<dyn Scatterer + Send + Sync>,
 }
 
 impl Sphere {
-    pub fn new(center: Point3<RT>, radius: RT) -> Self {
-        Sphere { center, radius }
+    pub fn new(center: Point3<RT>, radius: RT, material: Arc<dyn Scatterer + Send + Sync>) -> Self {
+        Sphere {
+            center,
+            radius,
+            material,
+        }
     }
 }
 
@@ -76,7 +83,12 @@ impl Hittable for Sphere {
                 Some(t) => {
                     let point = ray.at(t);
                     let normal = (point - self.center).scale(1. / self.radius);
-                    Some(RayHit { point, normal, t })
+                    Some(RayHit {
+                        point,
+                        normal,
+                        t,
+                        material: self.material.clone(),
+                    })
                 }
                 None => None,
             }
