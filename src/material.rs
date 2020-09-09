@@ -1,6 +1,8 @@
 use crate::color::RRgb;
 use crate::ray::{random_in_unit_sphere, Ray, RayHit, RT};
 use nalgebra::Vector3;
+use rand::distributions::Uniform;
+use rand::{thread_rng, Rng};
 
 pub(crate) trait Scatterer {
     /// returns color attenuation and scattered ray
@@ -50,6 +52,12 @@ pub(crate) struct Dieletric {
     pub refraction_index: f64,
 }
 
+fn schlick(cosine: f64, refraction_index: f64) -> f64 {
+    let r0 = (1f64 - refraction_index) / (1f64 + refraction_index);
+    let r0 = r0 * r0;
+    r0 + (1f64 - r0) * (1f64 - cosine).powf(5f64)
+}
+
 impl Scatterer for Dieletric {
     fn scatter(&self, ray: &Ray<f32>, ray_hit: &RayHit) -> Option<(RRgb, Ray<f32>)> {
         let attenuation = RRgb::new(1f64, 1f64, 1f64);
@@ -60,7 +68,23 @@ impl Scatterer for Dieletric {
         };
 
         let unit_direction = ray.direction().normalize();
-        let refracted = refract(&unit_direction, &ray_hit.normal, etai_over_etat as f32);
-        Some((attenuation, Ray::new(ray_hit.point, refracted)))
+
+        let cos_theta = f64::min(-unit_direction.dot(&ray_hit.normal) as f64, 1f64);
+        let sin_theta = (1f64 - cos_theta * cos_theta).sqrt();
+
+        let reflected_probability = schlick(cos_theta, etai_over_etat);
+        let mut rng = thread_rng();
+        let side = Uniform::new(0., 1.);
+        let randomly_reflected = rng.sample(side) < reflected_probability;
+
+        let scattered = if randomly_reflected || etai_over_etat * sin_theta > 1f64 {
+            // reflected
+            reflect(&unit_direction, &ray_hit.normal)
+        } else {
+            // refracted
+            refract(&unit_direction, &ray_hit.normal, etai_over_etat as f32)
+        };
+
+        Some((attenuation, Ray::new(ray_hit.point, scattered)))
     }
 }

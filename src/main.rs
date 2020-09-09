@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
             material_ground,
         )),
         Arc::new(Sphere::new(
-            Point3::new(-1.0, 0.0, -1.0),
+            Point3::new(-1.5, 0.0, -1.0),
             0.5,
             material_left,
         )),
@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
             material_middle,
         )),
         Arc::new(Sphere::new(
-            Point3::new(1.0, 0.0, -1.0),
+            Point3::new(1.5, 0.0, -1.0),
             0.5,
             material_right,
         )),
