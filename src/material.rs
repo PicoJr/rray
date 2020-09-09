@@ -38,3 +38,29 @@ impl Scatterer for Metal {
         }
     }
 }
+
+fn refract(uv: &Vector3<RT>, normal: &Vector3<RT>, etai_over_eta: RT) -> Vector3<RT> {
+    let cos_theta = -uv.dot(normal);
+    let r_out_perp = etai_over_eta * (uv + normal.scale(cos_theta));
+    let r_out_parallel = normal.scale(-(1.0 as RT - r_out_perp.norm_squared()).abs().sqrt());
+    r_out_perp + r_out_parallel
+}
+
+pub(crate) struct Dieletric {
+    pub refraction_index: f64,
+}
+
+impl Scatterer for Dieletric {
+    fn scatter(&self, ray: &Ray<f32>, ray_hit: &RayHit) -> Option<(RRgb, Ray<f32>)> {
+        let attenuation = RRgb::new(1f64, 1f64, 1f64);
+        let etai_over_etat = if ray_hit.front_face {
+            1f64 / self.refraction_index
+        } else {
+            self.refraction_index
+        };
+
+        let unit_direction = ray.direction().normalize();
+        let refracted = refract(&unit_direction, &ray_hit.normal, etai_over_etat as f32);
+        Some((attenuation, Ray::new(ray_hit.point, refracted)))
+    }
+}

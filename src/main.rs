@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::color::RRgb;
-use crate::material::{Lambertian, Metal};
+use crate::material::{Dieletric, Lambertian, Metal};
 use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
@@ -68,6 +68,9 @@ fn main() -> anyhow::Result<()> {
     let material_left = Arc::new(Metal {
         albedo: RRgb::new(0.8, 0.8, 0.8),
     });
+    let material_middle = Arc::new(Dieletric {
+        refraction_index: 1.5f64,
+    });
     let material_right = Arc::new(Lambertian {
         albedo: RRgb::new(0.8, 0.6, 0.2),
     });
@@ -78,9 +81,18 @@ fn main() -> anyhow::Result<()> {
             100.0,
             material_ground,
         )),
-        Arc::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5, material_left)),
         Arc::new(Sphere::new(
-            Point3::new(0.5, 0.0, -1.0),
+            Point3::new(-1.0, 0.0, -1.0),
+            0.5,
+            material_left,
+        )),
+        Arc::new(Sphere::new(
+            Point3::new(0.0, 0.0, -1.0),
+            0.5,
+            material_middle,
+        )),
+        Arc::new(Sphere::new(
+            Point3::new(1.0, 0.0, -1.0),
             0.5,
             material_right,
         )),

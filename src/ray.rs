@@ -39,6 +39,7 @@ pub(crate) struct RayHit {
     pub material: Arc<dyn Scatterer + Send + Sync>,
     /// when the ray hit
     pub t: RT,
+    pub front_face: bool,
 }
 
 pub(crate) trait Hittable {
@@ -82,12 +83,19 @@ impl Hittable for Sphere {
             match t {
                 Some(t) => {
                     let point = ray.at(t);
-                    let normal = (point - self.center).scale(1. / self.radius);
+                    let outward_normal = (point - self.center).scale(1. / self.radius);
+                    let front_face = ray.direction.dot(&outward_normal) < 0f32;
+                    let normal = if front_face {
+                        outward_normal // front hit
+                    } else {
+                        -outward_normal
+                    };
                     Some(RayHit {
                         point,
                         normal,
-                        t,
                         material: self.material.clone(),
+                        t,
+                        front_face,
                     })
                 }
                 None => None,
