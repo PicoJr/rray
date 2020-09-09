@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::color::RRgb;
-use crate::material::Lambertian;
+use crate::material::{Lambertian, Metal};
 use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
@@ -65,7 +65,7 @@ fn main() -> anyhow::Result<()> {
     let material_ground = Arc::new(Lambertian {
         albedo: RRgb::new(0.8, 0.8, 0.),
     });
-    let material_left = Arc::new(Lambertian {
+    let material_left = Arc::new(Metal {
         albedo: RRgb::new(0.8, 0.8, 0.8),
     });
     let material_right = Arc::new(Lambertian {
@@ -114,7 +114,8 @@ fn main() -> anyhow::Result<()> {
         .collect();
     let mut img = ImageBuffer::new(image_width as u32, image_height as u32);
     for (x, y, pixel) in pixels {
-        img.put_pixel(x, y, pixel);
+        let inverted_y = image_height - y - 1; // invert y axis, our raytracer camera y axis points upward, the image crate points downward
+        img.put_pixel(x, inverted_y, pixel);
     }
     img.save("out.png")?;
     Ok(())
