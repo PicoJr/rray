@@ -129,6 +129,6 @@ fn main() -> anyhow::Result<()> {
         let inverted_y = image_height - y - 1; // invert y axis, our raytracer camera y axis points upward, the image crate points downward
         img.put_pixel(x, inverted_y, pixel);
     }
-    img.save("out.png")?;
+    img.save(config.output_file_path)?;
     Ok(())
 }

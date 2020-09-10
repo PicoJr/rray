@@ -29,12 +29,21 @@ pub(crate) fn get_app() -> App<'static, 'static> {
                 .help("image width (pixels)")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("output")
+                .short("o")
+                .value_name("OUTPUT")
+                .required(false)
+                .help("output file path")
+                .takes_value(true),
+        )
 }
 
 pub(crate) struct RConfig {
     pub sample_per_pixel: usize,
     pub max_depth: usize,
     pub image_width: usize,
+    pub output_file_path: String,
 }
 
 impl Default for RConfig {
@@ -43,6 +52,7 @@ impl Default for RConfig {
             sample_per_pixel: 1,
             max_depth: 10,
             image_width: 128,
+            output_file_path: String::from("out.png"),
         }
     }
 }
@@ -78,6 +88,13 @@ impl RConfig {
         }
     }
 
+    pub(crate) fn with_output_file_path(self, output_file_path: String) -> anyhow::Result<Self> {
+        Ok(RConfig {
+            output_file_path,
+            ..self
+        })
+    }
+
     pub(crate) fn from_matches(matches: clap::ArgMatches) -> anyhow::Result<Self> {
         let config = RConfig::default();
         let config = if let Some(spp) = matches.value_of("sample_per_pixel") {
@@ -95,6 +112,11 @@ impl RConfig {
         let config = if let Some(image_width) = matches.value_of("image_width") {
             let image_width = image_width.parse::<usize>()?;
             config.with_image_width(image_width)?
+        } else {
+            config
+        };
+        let config = if let Some(output_file_path) = matches.value_of("output") {
+            config.with_output_file_path(String::from(output_file_path))?
         } else {
             config
         };
