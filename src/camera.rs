@@ -10,18 +10,24 @@ pub(crate) struct Camera {
 
 impl Camera {
     pub(crate) fn new(
-        origin: Point3<RT>,
+        look_from: Point3<RT>,
+        look_at: Point3<RT>,
+        vup: Vector3<RT>,
+        vfov: RT, // vertical field of view in degrees
         aspect_ratio: RT,
-        viewport_height: RT,
-        focal_length: RT,
     ) -> Self {
+        let theta = vfov / 180. as RT * std::f32::consts::PI as RT;
+        let h = (theta / 2.).tan();
+        let viewport_height = 2. * h;
         let viewport_width = aspect_ratio * viewport_height;
-        let horizontal = Vector3::new(viewport_width, 0., 0.);
-        let vertical = Vector3::new(0., viewport_height, 0.);
-        let lower_left_corner = origin
-            - horizontal.scale(0.5)
-            - vertical.scale(0.5)
-            - Vector3::new(0., 0., focal_length);
+        let w = (look_from - look_at).normalize();
+        let u = (vup.cross(&w)).normalize();
+        let v = w.cross(&u); // already normalized
+
+        let origin = look_from;
+        let horizontal = u.scale(viewport_width);
+        let vertical = v.scale(viewport_height);
+        let lower_left_corner = origin - horizontal.scale(0.5) - vertical.scale(0.5) - w;
         Camera {
             origin,
             horizontal,

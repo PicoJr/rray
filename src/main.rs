@@ -11,12 +11,12 @@ mod ray;
 
 use image::{ImageBuffer, Rgb};
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
-use nalgebra::Point3;
+use nalgebra::{Point3, Vector3};
 use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::color::RRgb;
-use crate::material::{Dieletric, Lambertian, Metal};
+use crate::material::{Dieletric, Lambertian, Metal, Scatterer};
 use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
     let config = cli::RConfig::from_matches(matches)?;
 
     // image
-    let aspect_ratio: RT = 2.0 / 1.0;
+    let aspect_ratio: RT = 16.0 / 9.0;
     let image_width: u32 = config.image_width as u32;
     let image_height = (image_width as RT / aspect_ratio) as u32;
     assert!(image_width > 0 && image_height > 0);
@@ -57,46 +57,56 @@ fn main() -> anyhow::Result<()> {
     let max_depth = config.max_depth;
 
     // camera
-    let origin = Point3::new(0., 0., 0.);
-    let focal_length: RT = 1.0;
-    let viewport_height = 2.0;
-    let camera = Camera::new(origin, aspect_ratio, viewport_height, focal_length);
+    let look_from = Point3::new(0., 5., 5.);
+    let look_at = Point3::new(0., 0., -1.);
+    let vup = Vector3::new(0., 1., 0.);
+    let vfov = 90.;
+    let camera = Camera::new(look_from, look_at, vup, vfov, aspect_ratio);
 
     let material_ground = Arc::new(Lambertian {
         albedo: RRgb::new(0.8, 0.8, 0.),
     });
-    let material_left = Arc::new(Metal {
+    let material_metal = Arc::new(Metal {
         albedo: RRgb::new(0.8, 0.8, 0.8),
     });
-    let material_middle = Arc::new(Dieletric {
+    let material_dieletric = Arc::new(Dieletric {
         refraction_index: 1.5f64,
     });
-    let material_right = Arc::new(Lambertian {
+    let material_lambertian = Arc::new(Lambertian {
         albedo: RRgb::new(0.8, 0.6, 0.2),
     });
 
-    let world: Vec<Arc<dyn Hittable + Send + Sync>> = vec![
-        Arc::new(Sphere::new(
-            Point3::new(0.0, -100.5, -1.0),
-            100.0,
-            material_ground,
-        )),
-        Arc::new(Sphere::new(
-            Point3::new(-1.5, 0.0, -1.0),
-            0.5,
-            material_left,
-        )),
-        Arc::new(Sphere::new(
-            Point3::new(0.0, 0.0, -1.0),
-            0.5,
-            material_middle,
-        )),
-        Arc::new(Sphere::new(
-            Point3::new(1.5, 0.0, -1.0),
-            0.5,
-            material_right,
-        )),
-    ];
+    let ground = Arc::new(Sphere::new(
+        Point3::new(0.0, -100.5, -1.0),
+        100.0,
+        material_ground,
+    ));
+
+    let mut world: Vec<Arc<dyn Hittable + Send + Sync>> = vec![ground];
+    let mut rng = thread_rng();
+    let side = Uniform::new(0., 1.);
+    for dx in -10..=10 {
+        for dz in -10..=0 {
+            let rdm = rng.sample(side);
+            let material: Arc<dyn Scatterer + Send + Sync> = if rdm < 0.80 {
+                let r = rng.sample(side);
+                let g = rng.sample(side);
+                let b = rng.sample(side);
+                Arc::new(Lambertian {
+                    albedo: RRgb::new(r, g, b),
+                })
+            } else if rdm < 0.90 {
+                material_metal.clone()
+            } else {
+                material_dieletric.clone()
+            };
+            world.push(Arc::new(Sphere::new(
+                Point3::new(0.0 + dx as RT, 0.0, 0.0 + dz as RT),
+                (rdm * rdm) as RT,
+                material,
+            )))
+        }
+    }
 
     let primary_rays = image_width * image_height; // 1 ray / pixel
 
