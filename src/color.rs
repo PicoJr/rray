@@ -1,5 +1,5 @@
 use crate::ray::RT;
-use image::{Pixel, Rgb};
+use image::Rgb;
 use std::ops;
 
 pub(crate) type CT = u8;
@@ -63,15 +63,6 @@ impl std::iter::Sum for RRgb {
 impl RRgb {
     pub(crate) fn new(r: f64, g: f64, b: f64) -> Self {
         RRgb { r, g, b }
-    }
-
-    pub(crate) fn from_color(color: Rgb<CT>) -> Self {
-        let (r, g, b, _a) = color.channels4();
-        RRgb {
-            r: r as f64,
-            g: g as f64,
-            b: b as f64,
-        }
     }
 }
 
