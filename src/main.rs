@@ -19,18 +19,27 @@ use crate::color::RRgb;
 use crate::material::{Dieletric, Lambertian, Metal, Scatterer};
 use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
 use rand::distributions::Uniform;
+use rand::prelude::ThreadRng;
 use rand::{thread_rng, Rng};
+
 use std::sync::Arc;
 
-fn ray_color(ray: &Ray<RT>, hittables: &[Arc<dyn Hittable + Send + Sync>], depth: usize) -> RRgb {
+fn ray_color(
+    ray: &Ray<RT>,
+    hittables: &[Arc<dyn Hittable + Send + Sync>],
+    depth: usize,
+    thread_rng: &mut ThreadRng,
+) -> RRgb {
     if depth == 0 {
         return RRgb::new(0., 0., 0.);
     }
     let hit = shoot_ray(hittables, ray, 0.01, RT::INFINITY);
     match hit {
         Some(ray_hit) => {
-            if let Some((attenuation, scattered)) = ray_hit.material.scatter(ray, &ray_hit) {
-                attenuation * ray_color(&scattered, hittables, depth - 1)
+            if let Some((attenuation, scattered)) =
+                ray_hit.material.scatter(ray, &ray_hit, thread_rng)
+            {
+                attenuation * ray_color(&scattered, hittables, depth - 1, thread_rng)
             } else {
                 RRgb::new(0., 0., 0.) // no ray scattered
             }
@@ -71,9 +80,6 @@ fn main() -> anyhow::Result<()> {
     });
     let material_dieletric = Arc::new(Dieletric {
         refraction_index: 1.5f64,
-    });
-    let material_lambertian = Arc::new(Lambertian {
-        albedo: RRgb::new(0.8, 0.6, 0.2),
     });
 
     let ground = Arc::new(Sphere::new(
@@ -127,7 +133,7 @@ fn main() -> anyhow::Result<()> {
                     let u = (x as RT + du as RT) / image_width as RT;
                     let v = (y as RT + dv as RT) / image_height as RT;
                     let ray = camera.get_ray(u, v);
-                    ray_color(&ray, &world, max_depth)
+                    ray_color(&ray, &world, max_depth, &mut rng)
                 })
                 .sum();
             let average_color = sum_color * (1. / (sample_per_pixel as RT));

@@ -2,11 +2,17 @@ use crate::color::RRgb;
 use crate::ray::{random_in_unit_sphere, Ray, RayHit, RT};
 use nalgebra::Vector3;
 use rand::distributions::Uniform;
-use rand::{thread_rng, Rng};
+use rand::prelude::ThreadRng;
+use rand::Rng;
 
 pub(crate) trait Scatterer {
     /// returns color attenuation and scattered ray
-    fn scatter(&self, ray: &Ray<RT>, ray_hit: &RayHit) -> Option<(RRgb, Ray<RT>)>;
+    fn scatter(
+        &self,
+        ray: &Ray<RT>,
+        ray_hit: &RayHit,
+        thread_rng: &mut ThreadRng,
+    ) -> Option<(RRgb, Ray<RT>)>;
 }
 
 pub(crate) struct Lambertian {
@@ -14,8 +20,13 @@ pub(crate) struct Lambertian {
 }
 
 impl Scatterer for Lambertian {
-    fn scatter(&self, _ray: &Ray<f32>, ray_hit: &RayHit) -> Option<(RRgb, Ray<f32>)> {
-        let scatter_direction = ray_hit.normal + random_in_unit_sphere(&mut rand::thread_rng());
+    fn scatter(
+        &self,
+        _ray: &Ray<f32>,
+        ray_hit: &RayHit,
+        thread_rng: &mut ThreadRng,
+    ) -> Option<(RRgb, Ray<f32>)> {
+        let scatter_direction = ray_hit.normal + random_in_unit_sphere(thread_rng);
         let scattered = Ray::new(ray_hit.point, scatter_direction);
         Some((self.albedo.clone(), scattered))
     }
@@ -30,7 +41,12 @@ fn reflect(v: &Vector3<RT>, normal: &Vector3<RT>) -> Vector3<RT> {
 }
 
 impl Scatterer for Metal {
-    fn scatter(&self, ray: &Ray<f32>, ray_hit: &RayHit) -> Option<(RRgb, Ray<f32>)> {
+    fn scatter(
+        &self,
+        ray: &Ray<f32>,
+        ray_hit: &RayHit,
+        _thread_rng: &mut ThreadRng,
+    ) -> Option<(RRgb, Ray<f32>)> {
         let reflected = reflect(&ray.direction().normalize(), &ray_hit.normal);
         let scattered = Ray::new(ray_hit.point, reflected);
         if scattered.direction().dot(&ray_hit.normal) > (0. as RT) {
@@ -59,7 +75,12 @@ fn schlick(cosine: f64, refraction_index: f64) -> f64 {
 }
 
 impl Scatterer for Dieletric {
-    fn scatter(&self, ray: &Ray<f32>, ray_hit: &RayHit) -> Option<(RRgb, Ray<f32>)> {
+    fn scatter(
+        &self,
+        ray: &Ray<f32>,
+        ray_hit: &RayHit,
+        thread_rng: &mut ThreadRng,
+    ) -> Option<(RRgb, Ray<f32>)> {
         let attenuation = RRgb::new(1f64, 1f64, 1f64);
         let etai_over_etat = if ray_hit.front_face {
             1f64 / self.refraction_index
@@ -73,9 +94,8 @@ impl Scatterer for Dieletric {
         let sin_theta = (1f64 - cos_theta * cos_theta).sqrt();
 
         let reflected_probability = schlick(cos_theta, etai_over_etat);
-        let mut rng = thread_rng();
         let side = Uniform::new(0., 1.);
-        let randomly_reflected = rng.sample(side) < reflected_probability;
+        let randomly_reflected = thread_rng.sample(side) < reflected_probability;
 
         let scattered = if randomly_reflected || etai_over_etat * sin_theta > 1f64 {
             // reflected
