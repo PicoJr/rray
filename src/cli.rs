@@ -1,3 +1,4 @@
+use crate::ray::RT;
 use clap::{App, Arg};
 
 pub(crate) fn get_app() -> App<'static, 'static> {
@@ -30,6 +31,14 @@ pub(crate) fn get_app() -> App<'static, 'static> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("vertical_fov")
+                .long("vfov")
+                .value_name("VERTICAL_FOV")
+                .required(false)
+                .help("vertical fov (degrees)")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("output")
                 .short("o")
                 .value_name("OUTPUT")
@@ -44,6 +53,7 @@ pub(crate) struct RConfig {
     pub max_depth: usize,
     pub image_width: usize,
     pub output_file_path: String,
+    pub vfov: RT,
 }
 
 impl Default for RConfig {
@@ -53,6 +63,7 @@ impl Default for RConfig {
             max_depth: 10,
             image_width: 128,
             output_file_path: String::from("out.png"),
+            vfov: 90.,
         }
     }
 }
@@ -95,6 +106,17 @@ impl RConfig {
         })
     }
 
+    pub(crate) fn with_vertical_fov(self, vertical_fov: RT) -> anyhow::Result<Self> {
+        if vertical_fov > 0. {
+            Ok(RConfig {
+                vfov: vertical_fov,
+                ..self
+            })
+        } else {
+            Err(anyhow::anyhow!("vertical fov should be > 0"))
+        }
+    }
+
     pub(crate) fn from_matches(matches: clap::ArgMatches) -> anyhow::Result<Self> {
         let config = RConfig::default();
         let config = if let Some(spp) = matches.value_of("sample_per_pixel") {
@@ -117,6 +139,12 @@ impl RConfig {
         };
         let config = if let Some(output_file_path) = matches.value_of("output") {
             config.with_output_file_path(String::from(output_file_path))?
+        } else {
+            config
+        };
+        let config = if let Some(vertical_fov) = matches.value_of("vertical_fov") {
+            let vertical_fov = vertical_fov.parse::<RT>()?;
+            config.with_vertical_fov(vertical_fov)?
         } else {
             config
         };

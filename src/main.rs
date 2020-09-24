@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
     let look_from = Point3::new(0., 5., 5.);
     let look_at = Point3::new(0., 0., -1.);
     let vup = Vector3::new(0., 1., 0.);
-    let vfov = 90.;
+    let vfov = config.vfov;
     let camera = Camera::new(look_from, look_at, vup, vfov, aspect_ratio);
 
     let material_ground = Arc::new(Lambertian {
