@@ -46,14 +46,22 @@ pub(crate) fn get_app() -> App<'static, 'static> {
                 .help("output file path")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("parallel")
+                .long("parallel")
+                .required(false)
+                .help("enable multi-threading"),
+        )
 }
 
 pub(crate) struct RConfig {
     pub sample_per_pixel: usize,
     pub max_depth: usize,
     pub image_width: usize,
+    pub aspect_ratio: RT,
     pub output_file_path: String,
     pub vfov: RT,
+    pub parallel: bool,
 }
 
 impl Default for RConfig {
@@ -62,13 +70,19 @@ impl Default for RConfig {
             sample_per_pixel: 1,
             max_depth: 10,
             image_width: 128,
+            aspect_ratio: 16.0 / 9.0,
             output_file_path: String::from("out.png"),
             vfov: 90.,
+            parallel: false,
         }
     }
 }
 
 impl RConfig {
+    pub(crate) fn get_image_height(&self) -> u32 {
+        (self.image_width as RT / self.aspect_ratio) as u32
+    }
+
     pub(crate) fn with_sample_per_pixel(self, sample_per_pixel: usize) -> anyhow::Result<Self> {
         if sample_per_pixel != 0 {
             Ok(RConfig {
@@ -117,6 +131,10 @@ impl RConfig {
         }
     }
 
+    pub(crate) fn with_parallel(self, parallel: bool) -> anyhow::Result<Self> {
+        Ok(RConfig { parallel, ..self })
+    }
+
     pub(crate) fn from_matches(matches: clap::ArgMatches) -> anyhow::Result<Self> {
         let config = RConfig::default();
         let config = if let Some(spp) = matches.value_of("sample_per_pixel") {
@@ -145,6 +163,11 @@ impl RConfig {
         let config = if let Some(vertical_fov) = matches.value_of("vertical_fov") {
             let vertical_fov = vertical_fov.parse::<RT>()?;
             config.with_vertical_fov(vertical_fov)?
+        } else {
+            config
+        };
+        let config = if matches.is_present("parallel") {
+            config.with_parallel(true)?
         } else {
             config
         };
