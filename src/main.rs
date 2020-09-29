@@ -23,24 +23,26 @@ use rand::prelude::ThreadRng;
 use rand::{thread_rng, Rng};
 
 use crate::cli::RConfig;
+use bvh::bvh::BVH;
 use std::sync::Arc;
 
 fn ray_color(
     ray: &Ray<RT>,
-    world: &[Arc<Target>],
+    world: &[Target],
+    bvh: &BVH,
     depth: usize,
     thread_rng: &mut ThreadRng,
 ) -> RRgb {
     if depth == 0 {
         return RRgb::new(0., 0., 0.);
     }
-    let hit = shoot_ray(world, ray, 0.01, RT::INFINITY);
+    let hit = shoot_ray(ray, world, bvh, 0.01, RT::INFINITY);
     match hit {
         Some(ray_hit) => {
             if let Some((attenuation, scattered)) =
                 ray_hit.material.scatter(ray, &ray_hit, thread_rng)
             {
-                attenuation * ray_color(&scattered, world, depth - 1, thread_rng)
+                attenuation * ray_color(&scattered, world, bvh, depth - 1, thread_rng)
             } else {
                 RRgb::new(0., 0., 0.) // no ray scattered
             }
@@ -56,7 +58,8 @@ fn ray_color(
 fn pixel_color(
     x: u32,
     y: u32,
-    world: &[Arc<Target>],
+    world: &[Target],
+    bvh: &BVH,
     camera: &Camera,
     config: &RConfig,
 ) -> (u32, u32, image::Rgb<u8>) {
@@ -70,7 +73,7 @@ fn pixel_color(
             let u = (x as RT + du as RT) / config.image_width as RT;
             let v = (y as RT + dv as RT) / image_height as RT;
             let ray = camera.get_ray(u, v);
-            ray_color(&ray, &world, config.max_depth, &mut rng)
+            ray_color(&ray, &world, bvh, config.max_depth, &mut rng)
         })
         .sum();
     let average_color = sum_color * (1. / (config.sample_per_pixel as RT));
@@ -99,13 +102,16 @@ fn main() -> anyhow::Result<()> {
         refraction_index: 1.5f64,
     });
 
-    let ground = Arc::new(Target::Sphere(Sphere::new(
+    let mut index = 0;
+
+    let ground = Target::Sphere(Sphere::new(
         Point3::new(0.0, -100.5, -1.0),
         100.0,
         material_ground,
-    )));
+        index,
+    ));
 
-    let mut world: Vec<Arc<Target>> = vec![ground];
+    let mut world: Vec<Target> = vec![ground];
     let mut rng = thread_rng();
     let side = Uniform::new(0., 1.);
     for dx in -10..=10 {
@@ -123,13 +129,17 @@ fn main() -> anyhow::Result<()> {
             } else {
                 material_dieletric.clone()
             };
-            world.push(Arc::new(Target::Sphere(Sphere::new(
+            index += 1;
+            world.push(Target::Sphere(Sphere::new(
                 Point3::new(0.0 + dx as RT, 0.0, 0.0 + dz as RT),
                 (rdm * rdm) as RT,
                 material,
-            ))))
+                index,
+            )))
         }
     }
+
+    let bvh = BVH::build(world.as_mut_slice());
 
     let primary_rays = config.image_width as u32 * config.get_image_height() as u32; // 1 ray / pixel
 
@@ -146,7 +156,7 @@ fn main() -> anyhow::Result<()> {
                     p as u32 / config.image_width as u32,
                 )
             })
-            .map(|(x, y)| pixel_color(x, y, world.as_slice(), &camera, &config))
+            .map(|(x, y)| pixel_color(x, y, world.as_slice(), &bvh, &camera, &config))
             .collect()
     } else {
         // single thread
@@ -158,7 +168,7 @@ fn main() -> anyhow::Result<()> {
                     p as u32 / config.image_width as u32,
                 )
             })
-            .map(|(x, y)| pixel_color(x, y, world.as_slice(), &camera, &config))
+            .map(|(x, y)| pixel_color(x, y, world.as_slice(), &bvh, &camera, &config))
             .collect()
     };
     let mut img = ImageBuffer::new(config.image_width as u32, config.get_image_height() as u32);

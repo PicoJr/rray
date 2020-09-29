@@ -1,4 +1,7 @@
 use crate::material::Scatterer;
+use bvh::aabb::{Bounded, AABB};
+use bvh::bounding_hierarchy::BHShape;
+use bvh::bvh::BVH;
 use nalgebra::base::Scalar;
 use nalgebra::{Point3, Vector3};
 use rand::prelude::ThreadRng;
@@ -7,6 +10,14 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 
 pub(crate) type RT = f32;
+
+fn bvh_position(p: Point3<RT>) -> bvh::nalgebra::Point3<RT> {
+    bvh::nalgebra::Point3::new(p.x, p.y, p.z)
+}
+
+fn bvh_direction(v: Vector3<RT>) -> bvh::nalgebra::Vector3<RT> {
+    bvh::nalgebra::Vector3::new(v.x, v.y, v.z)
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct Ray<T: Scalar> {
@@ -50,14 +61,21 @@ pub(crate) struct Sphere {
     center: Point3<RT>,
     radius: RT,
     material: Arc<dyn Scatterer + Send + Sync>,
+    node_index: usize, // bvh node index, must be unique
 }
 
 impl Sphere {
-    pub fn new(center: Point3<RT>, radius: RT, material: Arc<dyn Scatterer + Send + Sync>) -> Self {
+    pub fn new(
+        center: Point3<RT>,
+        radius: RT,
+        material: Arc<dyn Scatterer + Send + Sync>,
+        node_index: usize,
+    ) -> Self {
         Sphere {
             center,
             radius,
             material,
+            node_index,
         }
     }
 }
@@ -106,6 +124,25 @@ impl Hittable for Sphere {
     }
 }
 
+impl Bounded for Sphere {
+    fn aabb(&self) -> AABB {
+        let half_size = Vector3::new(self.radius, self.radius, self.radius);
+        let min = bvh_position(self.center - half_size);
+        let max = bvh_position(self.center + half_size);
+        AABB::with_bounds(min, max)
+    }
+}
+
+impl BHShape for Sphere {
+    fn set_bh_node_index(&mut self, index: usize) {
+        self.node_index = index;
+    }
+
+    fn bh_node_index(&self) -> usize {
+        self.node_index
+    }
+}
+
 pub(crate) enum Target {
     Sphere(Sphere),
 }
@@ -117,14 +154,41 @@ impl Hittable for Target {
         }
     }
 }
+
+impl Bounded for Target {
+    fn aabb(&self) -> AABB {
+        match self {
+            Target::Sphere(s) => s.aabb(),
+        }
+    }
+}
+
+impl BHShape for Target {
+    fn set_bh_node_index(&mut self, index: usize) {
+        match self {
+            Target::Sphere(s) => s.set_bh_node_index(index),
+        }
+    }
+
+    fn bh_node_index(&self) -> usize {
+        match self {
+            Target::Sphere(s) => s.bh_node_index(),
+        }
+    }
+}
+
 pub(crate) fn shoot_ray(
-    hittables: &[Arc<Target>],
     ray: &Ray<RT>,
+    world: &[Target],
+    bvh: &BVH,
     t_min: RT,
     t_max: RT,
 ) -> Option<RayHit> {
+    let bvh_ray = bvh::ray::Ray::new(bvh_position(ray.origin()), bvh_direction(ray.direction()));
+    let aabb_hits = bvh.traverse(&bvh_ray, world);
+
     let closest_hit =
-        hittables
+        aabb_hits
             .iter()
             .map(|g| g.hit(ray, t_min, t_max))
             .min_by(
