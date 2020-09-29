@@ -106,8 +106,19 @@ impl Hittable for Sphere {
     }
 }
 
+pub(crate) enum Target {
+    Sphere(Sphere),
+}
+
+impl Hittable for Target {
+    fn hit(&self, ray: &Ray<f32>, t_min: f32, t_max: f32) -> Option<RayHit> {
+        match self {
+            Target::Sphere(s) => s.hit(ray, t_min, t_max),
+        }
+    }
+}
 pub(crate) fn shoot_ray(
-    hittables: &[Arc<dyn Hittable + Send + Sync>],
+    hittables: &[Arc<Target>],
     ray: &Ray<RT>,
     t_min: RT,
     t_max: RT,

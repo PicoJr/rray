@@ -17,7 +17,7 @@ use rayon::prelude::*;
 use crate::camera::Camera;
 use crate::color::RRgb;
 use crate::material::{Dieletric, Lambertian, Metal, Scatterer};
-use crate::ray::{shoot_ray, Hittable, Ray, Sphere, RT};
+use crate::ray::{shoot_ray, Ray, Sphere, Target, RT};
 use rand::distributions::Uniform;
 use rand::prelude::ThreadRng;
 use rand::{thread_rng, Rng};
@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 fn ray_color(
     ray: &Ray<RT>,
-    world: &[Arc<dyn Hittable + Send + Sync>],
+    world: &[Arc<Target>],
     depth: usize,
     thread_rng: &mut ThreadRng,
 ) -> RRgb {
@@ -56,7 +56,7 @@ fn ray_color(
 fn pixel_color(
     x: u32,
     y: u32,
-    world: &[Arc<dyn Hittable + Send + Sync>],
+    world: &[Arc<Target>],
     camera: &Camera,
     config: &RConfig,
 ) -> (u32, u32, image::Rgb<u8>) {
@@ -99,13 +99,13 @@ fn main() -> anyhow::Result<()> {
         refraction_index: 1.5f64,
     });
 
-    let ground = Arc::new(Sphere::new(
+    let ground = Arc::new(Target::Sphere(Sphere::new(
         Point3::new(0.0, -100.5, -1.0),
         100.0,
         material_ground,
-    ));
+    )));
 
-    let mut world: Vec<Arc<dyn Hittable + Send + Sync>> = vec![ground];
+    let mut world: Vec<Arc<Target>> = vec![ground];
     let mut rng = thread_rng();
     let side = Uniform::new(0., 1.);
     for dx in -10..=10 {
@@ -123,11 +123,11 @@ fn main() -> anyhow::Result<()> {
             } else {
                 material_dieletric.clone()
             };
-            world.push(Arc::new(Sphere::new(
+            world.push(Arc::new(Target::Sphere(Sphere::new(
                 Point3::new(0.0 + dx as RT, 0.0, 0.0 + dz as RT),
                 (rdm * rdm) as RT,
                 material,
-            )))
+            ))))
         }
     }
 
@@ -148,9 +148,9 @@ fn main() -> anyhow::Result<()> {
             })
             .map(|(x, y)| pixel_color(x, y, world.as_slice(), &camera, &config))
             .collect()
-    } else { // single thread
+    } else {
+        // single thread
         (0..primary_rays)
-            .into_iter()
             .progress_with(progress_bar)
             .map(|p| {
                 (
