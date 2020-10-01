@@ -10,6 +10,7 @@ pub(crate) enum Material {
     Dieletric(Dieletric),
     Lambertian(Lambertian),
     Metal(Metal),
+    Light(Light),
 }
 
 impl Scatterer for Material {
@@ -23,6 +24,7 @@ impl Scatterer for Material {
             Material::Dieletric(dieletric) => dieletric.scatter(ray, ray_hit, thread_rng),
             Material::Lambertian(lambertian) => lambertian.scatter(ray, ray_hit, thread_rng),
             Material::Metal(metal) => metal.scatter(ray, ray_hit, thread_rng),
+            Material::Light(_) => None, // does not scatter light
         }
     }
 }
@@ -31,8 +33,9 @@ impl Emitter for Material {
     fn emit(&self) -> RRgb {
         match self {
             Material::Dieletric(_) => RRgb::new(0., 0., 0.),
-            Material::Lambertian(lambertian) => lambertian.albedo.clone() * 100.,
+            Material::Lambertian(_) => RRgb::new(0., 0., 0.),
             Material::Metal(_) => RRgb::new(0., 0., 0.),
+            Material::Light(light) => light.emit(),
         }
     }
 }
@@ -49,6 +52,17 @@ pub(crate) trait Scatterer {
 
 pub(crate) trait Emitter {
     fn emit(&self) -> RRgb;
+}
+
+#[derive(Clone)]
+pub(crate) struct Light {
+    pub emitted: RRgb,
+}
+
+impl Emitter for Light {
+    fn emit(&self) -> RRgb {
+        self.emitted.clone()
+    }
 }
 
 #[derive(Clone)]

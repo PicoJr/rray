@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::color::RRgb;
-use crate::material::{Dieletric, Emitter, Lambertian, Material, Metal, Scatterer};
+use crate::material::{Dieletric, Emitter, Lambertian, Light, Material, Metal, Scatterer};
 use crate::ray::{shoot_ray, Ray, Sphere, Target, RT};
 use rand::distributions::Uniform;
 use rand::prelude::ThreadRng;
@@ -91,6 +91,9 @@ fn main() -> anyhow::Result<()> {
     let material_ground = Lambertian {
         albedo: RRgb::new(0.8, 0.8, 0.),
     };
+    let material_light = Light {
+        emitted: RRgb::new(1000.0, 1000.0, 1000.0),
+    };
     let material_metal = Metal {
         albedo: RRgb::new(0.8, 0.8, 0.8),
     };
@@ -107,7 +110,15 @@ fn main() -> anyhow::Result<()> {
         index,
     ));
 
-    let mut world: Vec<Target> = vec![ground];
+    index += 1;
+    let sun = Target::Sphere(Sphere::new(
+        Point3::new(0.0, 10.0, -10.0),
+        5.,
+        Material::Light(material_light),
+        index,
+    ));
+
+    let mut world: Vec<Target> = vec![ground, sun];
     let mut rng = thread_rng();
     let side = Uniform::new(0., 1.);
     for dx in -10..=10 {
