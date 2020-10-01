@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::color::RRgb;
-use crate::material::{Dieletric, Lambertian, Metal, Scatterer};
+use crate::material::{Dieletric, Emitter, Lambertian, Material, Metal, Scatterer};
 use crate::ray::{shoot_ray, Ray, Sphere, Target, RT};
 use rand::distributions::Uniform;
 use rand::prelude::ThreadRng;
@@ -24,7 +24,6 @@ use rand::{thread_rng, Rng};
 
 use crate::cli::RConfig;
 use bvh::bvh::BVH;
-use std::sync::Arc;
 
 fn ray_color(
     ray: &Ray<RT>,
@@ -39,19 +38,16 @@ fn ray_color(
     let hit = shoot_ray(ray, world, bvh, 0.01, RT::INFINITY);
     match hit {
         Some(ray_hit) => {
+            let emitted = ray_hit.material.emit();
             if let Some((attenuation, scattered)) =
                 ray_hit.material.scatter(ray, &ray_hit, thread_rng)
             {
-                attenuation * ray_color(&scattered, world, bvh, depth - 1, thread_rng)
+                emitted + attenuation * ray_color(&scattered, world, bvh, depth - 1, thread_rng)
             } else {
-                RRgb::new(0., 0., 0.) // no ray scattered
+                emitted
             }
         }
-        None => {
-            let t = 0.5 * (ray.direction().normalize().y + 1.0); // t in [0;1[
-            let s = u8::max_value() as f64 * t as f64;
-            RRgb::new(s, s, s)
-        }
+        None => RRgb::new(0., 0., 0.),
     }
 }
 
@@ -92,22 +88,22 @@ fn main() -> anyhow::Result<()> {
     let vfov = config.vfov;
     let camera = Camera::new(look_from, look_at, vup, vfov, config.aspect_ratio);
 
-    let material_ground = Arc::new(Lambertian {
+    let material_ground = Lambertian {
         albedo: RRgb::new(0.8, 0.8, 0.),
-    });
-    let material_metal = Arc::new(Metal {
+    };
+    let material_metal = Metal {
         albedo: RRgb::new(0.8, 0.8, 0.8),
-    });
-    let material_dieletric = Arc::new(Dieletric {
+    };
+    let material_dieletric = Dieletric {
         refraction_index: 1.5f64,
-    });
+    };
 
     let mut index = 0;
 
     let ground = Target::Sphere(Sphere::new(
         Point3::new(0.0, -100.5, -1.0),
         100.0,
-        material_ground,
+        Material::Lambertian(material_ground),
         index,
     ));
 
@@ -117,23 +113,23 @@ fn main() -> anyhow::Result<()> {
     for dx in -10..=10 {
         for dz in -10..=0 {
             let rdm = rng.sample(side);
-            let material: Arc<dyn Scatterer + Send + Sync> = if rdm < 0.80 {
+            let material: Material = if rdm < 0.80 {
                 let r = rng.sample(side);
                 let g = rng.sample(side);
                 let b = rng.sample(side);
-                Arc::new(Lambertian {
+                Material::Lambertian(Lambertian {
                     albedo: RRgb::new(r, g, b),
                 })
             } else if rdm < 0.90 {
-                material_metal.clone()
+                Material::Metal(material_metal.clone())
             } else {
-                material_dieletric.clone()
+                Material::Dieletric(material_dieletric.clone())
             };
             index += 1;
             world.push(Target::Sphere(Sphere::new(
                 Point3::new(0.0 + dx as RT, 0.0, 0.0 + dz as RT),
                 (rdm * rdm) as RT,
-                material,
+                material.clone(),
                 index,
             )))
         }

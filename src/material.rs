@@ -5,6 +5,38 @@ use rand::distributions::Uniform;
 use rand::prelude::ThreadRng;
 use rand::Rng;
 
+#[derive(Clone)]
+pub(crate) enum Material {
+    Dieletric(Dieletric),
+    Lambertian(Lambertian),
+    Metal(Metal),
+}
+
+impl Scatterer for Material {
+    fn scatter(
+        &self,
+        ray: &Ray<f32>,
+        ray_hit: &RayHit,
+        thread_rng: &mut ThreadRng,
+    ) -> Option<(RRgb, Ray<f32>)> {
+        match self {
+            Material::Dieletric(dieletric) => dieletric.scatter(ray, ray_hit, thread_rng),
+            Material::Lambertian(lambertian) => lambertian.scatter(ray, ray_hit, thread_rng),
+            Material::Metal(metal) => metal.scatter(ray, ray_hit, thread_rng),
+        }
+    }
+}
+
+impl Emitter for Material {
+    fn emit(&self) -> RRgb {
+        match self {
+            Material::Dieletric(_) => RRgb::new(0., 0., 0.),
+            Material::Lambertian(lambertian) => lambertian.albedo.clone() * 100.,
+            Material::Metal(_) => RRgb::new(0., 0., 0.),
+        }
+    }
+}
+
 pub(crate) trait Scatterer {
     /// returns color attenuation and scattered ray
     fn scatter(
@@ -15,6 +47,11 @@ pub(crate) trait Scatterer {
     ) -> Option<(RRgb, Ray<RT>)>;
 }
 
+pub(crate) trait Emitter {
+    fn emit(&self) -> RRgb;
+}
+
+#[derive(Clone)]
 pub(crate) struct Lambertian {
     pub albedo: RRgb,
 }
@@ -32,6 +69,7 @@ impl Scatterer for Lambertian {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct Metal {
     pub albedo: RRgb,
 }
@@ -64,6 +102,7 @@ fn refract(uv: &Vector3<RT>, normal: &Vector3<RT>, etai_over_eta: RT) -> Vector3
     r_out_perp + r_out_parallel
 }
 
+#[derive(Clone)]
 pub(crate) struct Dieletric {
     pub refraction_index: f64,
 }

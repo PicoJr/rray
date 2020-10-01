@@ -1,4 +1,4 @@
-use crate::material::Scatterer;
+use crate::material::Material;
 use bvh::aabb::{Bounded, AABB};
 use bvh::bounding_hierarchy::BHShape;
 use bvh::bvh::BVH;
@@ -7,7 +7,6 @@ use nalgebra::{Point3, Vector3};
 use rand::prelude::ThreadRng;
 use rand_distr::{Distribution, UnitBall};
 use std::cmp::Ordering;
-use std::sync::Arc;
 
 pub(crate) type RT = f32;
 
@@ -47,7 +46,7 @@ pub(crate) struct RayHit {
     pub point: Point3<RT>,
     /// normalized normal
     pub normal: Vector3<RT>,
-    pub material: Arc<dyn Scatterer + Send + Sync>,
+    pub material: Material,
     /// when the ray hit
     pub t: RT,
     pub front_face: bool,
@@ -60,17 +59,12 @@ pub(crate) trait Hittable {
 pub(crate) struct Sphere {
     center: Point3<RT>,
     radius: RT,
-    material: Arc<dyn Scatterer + Send + Sync>,
+    material: Material,
     node_index: usize, // bvh node index, must be unique
 }
 
 impl Sphere {
-    pub fn new(
-        center: Point3<RT>,
-        radius: RT,
-        material: Arc<dyn Scatterer + Send + Sync>,
-        node_index: usize,
-    ) -> Self {
+    pub fn new(center: Point3<RT>, radius: RT, material: Material, node_index: usize) -> Self {
         Sphere {
             center,
             radius,
