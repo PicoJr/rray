@@ -39,6 +39,14 @@ pub(crate) fn get_app() -> App<'static, 'static> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("aperture")
+                .long("aperture")
+                .value_name("APERTURE")
+                .required(false)
+                .help("aperture: 0.0 means everything is in focus")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("output")
                 .short("o")
                 .value_name("OUTPUT")
@@ -61,6 +69,7 @@ pub(crate) struct RConfig {
     pub aspect_ratio: RT,
     pub output_file_path: String,
     pub vfov: RT,
+    pub aperture: RT,
     pub parallel: bool,
 }
 
@@ -73,6 +82,7 @@ impl Default for RConfig {
             aspect_ratio: 16.0 / 9.0,
             output_file_path: String::from("out.png"),
             vfov: 90.,
+            aperture: 1.0,
             parallel: false,
         }
     }
@@ -131,6 +141,14 @@ impl RConfig {
         }
     }
 
+    pub(crate) fn with_aperture(self, aperture: RT) -> anyhow::Result<Self> {
+        if aperture >= 0. {
+            Ok(RConfig { aperture, ..self })
+        } else {
+            Err(anyhow::anyhow!("aperture should be >= 0."))
+        }
+    }
+
     pub(crate) fn with_parallel(self, parallel: bool) -> anyhow::Result<Self> {
         Ok(RConfig { parallel, ..self })
     }
@@ -163,6 +181,12 @@ impl RConfig {
         let config = if let Some(vertical_fov) = matches.value_of("vertical_fov") {
             let vertical_fov = vertical_fov.parse::<RT>()?;
             config.with_vertical_fov(vertical_fov)?
+        } else {
+            config
+        };
+        let config = if let Some(aperture) = matches.value_of("aperture") {
+            let aperture = aperture.parse::<RT>()?;
+            config.with_aperture(aperture)?
         } else {
             config
         };

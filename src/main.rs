@@ -68,7 +68,7 @@ fn pixel_color(
             let dv = rng.sample(side);
             let u = (x as RT + du as RT) / config.image_width as RT;
             let v = (y as RT + dv as RT) / image_height as RT;
-            let ray = camera.get_ray(u, v);
+            let ray = camera.get_ray(u, v, &mut rng);
             ray_color(&ray, &world, bvh, config.max_depth, &mut rng)
         })
         .sum();
@@ -86,7 +86,16 @@ fn main() -> anyhow::Result<()> {
     let look_at = Point3::new(0., 0., -1.);
     let vup = Vector3::new(0., 1., 0.);
     let vfov = config.vfov;
-    let camera = Camera::new(look_from, look_at, vup, vfov, config.aspect_ratio);
+    let distance_to_focus = (look_from - look_at).norm();
+    let camera = Camera::new(
+        look_from,
+        look_at,
+        vup,
+        vfov,
+        config.aspect_ratio,
+        config.aperture,
+        distance_to_focus,
+    );
 
     let material_ground = Lambertian {
         albedo: RRgb::new(0.8, 0.8, 0.),
@@ -112,8 +121,8 @@ fn main() -> anyhow::Result<()> {
 
     index += 1;
     let sun = Target::Sphere(Sphere::new(
-        Point3::new(0.0, 10.0, -10.0),
-        5.,
+        Point3::new(0.0, 20.0, -10.0),
+        10.,
         Material::Light(material_light),
         index,
     ));
