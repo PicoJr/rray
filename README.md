@@ -17,5 +17,5 @@ cargo +nightly build --release
 Run (generates `out.png`).
 
 ```
-./target/release/rray -w 512 -m 20 -s 20
+./target/release/rray -w 512 -m 50 -s 1000 --vfov 60 --aperture 0.1 --parallel -o out.png
 ```
