@@ -190,7 +190,13 @@ pub(crate) fn shoot_ray(
                     (None, None) => Ordering::Equal,
                     (Some(_h), None) => Ordering::Less,
                     (None, Some(_h)) => Ordering::Greater,
-                    (Some(h), Some(other)) => h.t.total_cmp(&other.t),
+                    (Some(h), Some(other)) => {
+                        if h.t <= other.t {
+                            Ordering::Less
+                        } else {
+                            Ordering::Greater
+                        }
+                    }
                 },
             );
     match closest_hit {

@@ -1,4 +1,3 @@
-#![feature(total_cmp)]
 extern crate image;
 #[macro_use]
 extern crate clap;

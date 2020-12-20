@@ -4,14 +4,12 @@
 
 Implementation of the Peter Shirley's book: [_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html) in Rust.
 
-Requires rust nightly `#![feature(total_cmp)]`.
-
 ## Example
 
 Compile in release mode.
 
 ```
-cargo +nightly build --release
+cargo build --release
 ```
 
 Run (generates `out.png`).
